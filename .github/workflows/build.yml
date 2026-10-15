@@ -6,14 +6,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout empty repo
         uses: actions/checkout@v4
 
-      - name: Fetch official 7‑Zip 23.01 source
+      # 下载 p7zip 16.02（带完整CPP/ANDROID/7zr/jni，自带Android.mk，这是关键！）
+      - name: Download p7zip 16.02 source
         run: |
-          wget https://www.7-zip.org/a/7z2301-src.tar.xz
-          tar -xf 7z2301-src.tar.xz
+          wget https://downloads.sourceforge.net/project/p7zip/p7zip/16.02/p7zip_16.02_src_all.tar.bz2
+          tar -xjvf p7zip_16.02_src_all.tar.bz2
 
+      # 下载NDK r17b
       - name: Download Android NDK r17b
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r17b-linux-x86_64.zip
@@ -21,57 +23,16 @@ jobs:
           echo "NDK_ROOT=$PWD/android-ndk-r17b" >> $GITHUB_ENV
           echo "PATH=$PWD/android-ndk-r17b/build:$PATH" >> $GITHUB_ENV
 
-      - name: Prepare jni dir & generate makefiles
+      # 进入自带jni目录直接ndk-build，p7zip源码自带mk文件，不用手写！
+      - name: Build 7zr
         run: |
-          cd CPP/Android/7zr
-          mkdir -p jni
-          cat > jni/Application.mk <<'EOF'
-APP_ABI := arm64-v8a
-APP_PLATFORM := android-24
-APP_STL := none
-EOF
-
-          cat > jni/Android.mk <<'EOF'
-LOCAL_PATH:= $(call my-dir)
-include $(CLEAR_VARS)
-
-7Z_BASE := ../../..
-
-LOCAL_C_INCLUDES := \
-$(7Z_BASE)/CPP \
-$(7Z_BASE)/CPP/Include
-
-LOCAL_SRC_FILES := \
-$(7Z_BASE)/CPP/7zr/Main.cpp \
-$(7Z_BASE)/CPP/7z/7zAlloc.c \
-$(7Z_BASE)/CPP/7z/7zBuf.c \
-$(7Z_BASE)/CPP/7z/7zBuf2.c \
-$(7Z_BASE)/CPP/7z/7zDec.c \
-$(7Z_BASE)/CPP/7z/7zFile.c \
-$(7Z_BASE)/CPP/7z/7zIn.c \
-$(7Z_BASE)/CPP/7z/7zMain.c \
-$(7Z_BASE)/CPP/7z/7zOpen.c \
-$(7Z_BASE)/CPP/7z/7zRead.c \
-$(7Z_BASE)/CPP/7z/7zUtil.c \
-$(7Z_BASE)/CPP/Common/MyString.cpp \
-$(7Z_BASE)/CPP/Common/MyVector.cpp \
-$(7Z_BASE)/CPP/Common/MyWindows.cpp \
-$(7Z_BASE)/CPP/Windows/FileIO.cpp \
-$(7Z_BASE)/CPP/Windows/FileFind.cpp \
-$(7Z_BASE)/CPP/Windows/FileName.cpp
-
-LOCAL_MODULE := 7zr
-LOCAL_CFLAGS += -DENV_UNIX -D_REENTRANT -O2
-include $(BUILD_EXECUTABLE)
-EOF
-
-      - name: Run ndk‑build compile 7zr
-        run: |
-          cd CPP/Android/7zr/jni
+          ls -la p7zip_16.02/CPP/ANDROID/7zr/jni
+          cd p7zip_16.02/CPP/ANDROID/7zr/jni
           ndk-build
 
-      - name: Upload compiled binary
+      # 上传编译产物
+      - name: Upload compiled 7zr binary
         uses: actions/upload-artifact@v4
         with:
           name: 7zr-arm64-v8a
-          path: CPP/Android/7zr/libs/arm64-v8a/7zr
+          path: p7zip_16.02/CPP/ANDROID/7zr/libs/arm64-v8a/7zr
