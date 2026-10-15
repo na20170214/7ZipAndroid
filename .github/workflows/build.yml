@@ -30,6 +30,7 @@ APP_PLATFORM := android-24
 APP_STL := none
 EOF
           ls -la
+          cat Application.mk
 
       - name: Build 7zr
         run: |
