@@ -1,0 +1,44 @@
+name: Build 7zr Android
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout empty repo
+        uses: actions/checkout@v4
+
+      - name: Download p7zip 16.02 source
+        run: |
+          wget https://downloads.sourceforge.net/project/p7zip/p7zip/16.02/p7zip_16.02_src_all.tar.bz2
+          tar -xjvf p7zip_16.02_src_all.tar.bz2
+
+      - name: Download Android NDK r17b
+        run: |
+          wget https://dl.google.com/android/repository/android-ndk-r17b-linux-x86_64.zip
+          unzip -q android-ndk-r17b-linux-x86_64.zip
+          echo "NDK_ROOT=$PWD/android-ndk-r17b" >> $GITHUB_ENV
+          echo "PATH=$PWD/android-ndk-r17b/build:$PATH" >> $GITHUB_ENV
+
+      - name: Fix Application.mk (remove old armeabi, use arm64-v8a)
+        run: |
+          cd p7zip_16.02/CPP/ANDROID/7zr/jni
+          cat > Application.mk <<'EOF'
+APP_ABI := arm64-v8a
+APP_PLATFORM := android-24
+APP_STL := none
+EOF
+          ls -la
+          cat Application.mk
+
+      - name: Build 7zr
+        run: |
+          cd p7zip_16.02/CPP/ANDROID/7zr/jni
+          ndk-build
+
+      - name: Upload compiled 7zr binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7zr-arm64-v8a
+          path: p7zip_16.02/CPP/ANDROID/7zr/libs/arm64-v8a/7zr
